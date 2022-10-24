@@ -8,7 +8,7 @@ use bastion::{
 use r2d2::ManageConnection;
 use core::fmt::Debug;
 use cqrs_es::Aggregate;
-use log::warn;
+use log::{warn, info};
 use redis::{
     cluster::{ClusterClientBuilder, ClusterConnection},
     Commands, FromRedisValue, RedisError, ToRedisArgs,
@@ -183,6 +183,8 @@ impl TActor for Redis {
             .max_size(15)
             .build(manager)
             .unwrap();
+        
+        info!("Pool state: {:?}", pool.state());    
 
         let mut conn = pool.get().unwrap();
 
