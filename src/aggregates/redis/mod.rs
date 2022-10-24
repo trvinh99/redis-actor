@@ -1,7 +1,14 @@
+/// Module for command definition.
+mod command;
+/// Module for error definition.
+mod error;
+/// Module for event definition.
+mod event;
+
 use anyhow::Result;
 use async_trait::async_trait;
 use bastion::{
-    prelude::{AnswerSender, BastionContext, Distributor, Message, MessageHandler},
+    prelude::{BastionContext, Distributor, MessageHandler},
     run,
     supervisor::{ActorRestartStrategy, RestartPolicy, RestartStrategy},
 };
@@ -11,25 +18,34 @@ use log::{info, warn};
 use r2d2::ManageConnection;
 use redis::{
     cluster::{ClusterClientBuilder, ClusterConnection},
-    Commands, ConnectionLike, FromRedisValue, RedisError, ToRedisArgs,
+    Commands, ConnectionLike, RedisError,
 };
 use serde::{Deserialize, Serialize};
-use std::{error::Error, io, marker::PhantomData};
+use std::io;
 
 use crate::actors::base::TActor;
 
 use self::{command::RedisCommand, event::RedisEvent};
 
-mod command;
-mod error;
-mod event;
-
+/// Redis actor to manage redis state, store urls of cluster nodes.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Redis {
     pub state: RedisState,
     pub urls: Vec<String>,
+    pub redis_auth: RedisAuth,
 }
 
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RedisAuth {
+    #[default]
+    None,
+    Userpass {
+        username: String,
+        password: String,
+    },
+}
+
+/// Redis state to manage the state of the redis connection.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RedisState {
     #[default]
@@ -49,6 +65,19 @@ impl Redis {
     }
 }
 
+/// Command for delete a key
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RedisDelete {
+    pub key: String,
+}
+
+impl RedisDelete {
+    pub fn key(&self) -> String {
+        self.key.clone()
+    }
+}
+
+/// Command for query value by key.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RedisQuery {
     pub key: String,
@@ -60,10 +89,12 @@ impl RedisQuery {
     }
 }
 
+/// Command for insert a pair of key and value.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RedisInsert {
     pub key: String,
     pub value: Vec<u8>,
+    pub expire_time: usize,
 }
 
 impl RedisInsert {
@@ -167,8 +198,6 @@ impl TActor for Redis {
             .build(self.clone())
             .unwrap();
 
-        info!("Pool state: {:?}", pool.state());
-
         let mut conn = pool.get().unwrap();
 
         info!("Pool state: {:?}", pool.state());
@@ -207,13 +236,22 @@ impl TActor for Redis {
                 })
                 .on_question(|event: RedisQuery, sender| {
                     if let RedisState::Initialized = self.get_state() {
-                        let result: Vec<u8> = conn.get(event.key).unwrap();
-                        sender.reply(result).expect("cannot reply");
+                        let result: Result<Vec<u8>, RedisError> = conn.get(event.key);
+
+                        if let Ok(data) = result {
+                            sender.reply(data).expect("cannot reply");
+                        }
                     }
                 })
                 .on_tell(|event: RedisInsert, _| {
                     if let RedisState::Initialized = self.get_state() {
-                        let _: () = conn.set(event.key, event.value).unwrap();
+                        let _: Result<(), RedisError> = conn.set(event.key.clone(), event.value);
+                        let _: Result<(), RedisError> = conn.expire(event.key, event.expire_time);
+                    }
+                })
+                .on_tell(|event: RedisDelete, _| {
+                    if let RedisState::Initialized = self.get_state() {
+                        let _: Result<(), RedisError> = conn.del(event.key);
                     }
                 })
                 .on_fallback(|unknown, _| warn!("[REDIS] Unknown message: {unknown:?}"));

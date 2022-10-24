@@ -1,10 +1,10 @@
 use actors::base::Actor;
-use aggregates::redis::{Redis, RedisInsert, RedisQuery};
+use aggregates::redis::{Redis, RedisDelete, RedisInsert, RedisQuery};
 use bastion::{
-    prelude::{Distributor, Message, SendError},
+    prelude::{Distributor, SendError},
     run,
 };
-use log::{error, info};
+use log::error;
 
 pub mod actors;
 pub mod aggregates;
@@ -23,11 +23,18 @@ pub fn init_redis(urls: Vec<String>) -> Actor<Redis> {
     _redis_actor
 }
 
-pub fn insert(key: String, value: Vec<u8>) {
-    match Distributor::named("redis_actor").tell_one(RedisInsert { key, value }) {
-        Ok(_) => {
-            info!("insert ok");
-        }
+pub fn insert(key: String, value: Vec<u8>, expire_time: Option<usize>) {
+    let expire_time = match expire_time {
+        Some(exp) => exp,
+        None => 0,
+    };
+
+    match Distributor::named("redis_actor").tell_one(RedisInsert {
+        key,
+        value,
+        expire_time,
+    }) {
+        Ok(_) => {}
         Err(e) => {
             error!("insert error: {:?}", e);
         }
@@ -44,6 +51,13 @@ pub fn query(key: String) -> Vec<u8> {
     reply.unwrap()
 }
 
+pub fn delete(key: String) {
+    match Distributor::named("redis_actor").tell_one(RedisDelete { key: key.clone() }) {
+        Ok(_) => {}
+        Err(e) => error!("Delete key {} failed: {:?}", key, e),
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use std::{thread::sleep, time::Duration};
@@ -54,10 +68,10 @@ mod tests {
     async fn it_works() {
         init_redis(vec!["redis://127.0.0.1:30006".to_owned()]);
         sleep(Duration::from_secs(5));
-        let expected = "hi".to_owned();
-        insert("hello".to_owned(), expected.as_bytes().to_vec());
+        let expected = "value".to_owned();
+        insert("key".to_owned(), expected.as_bytes().to_vec(), None);
 
-        let query = query("hello".to_owned());
+        let query = query("key".to_owned());
 
         let res = String::from_utf8(query).unwrap();
         assert_eq!(expected, res);
