@@ -94,7 +94,7 @@ impl RedisQuery {
 pub struct RedisInsert {
     pub key: String,
     pub value: Vec<u8>,
-    pub expire_time: usize,
+    pub expire_time: Option<usize>,
 }
 
 impl RedisInsert {
@@ -246,7 +246,12 @@ impl TActor for Redis {
                 .on_tell(|event: RedisInsert, _| {
                     if let RedisState::Initialized = self.get_state() {
                         let _: Result<(), RedisError> = conn.set(event.key.clone(), event.value);
-                        let _: Result<(), RedisError> = conn.expire(event.key, event.expire_time);
+                        match event.expire_time {
+                            Some(exp) => {
+                                let _: Result<(), RedisError> = conn.expire(event.key, exp);
+                            }
+                            None => {}
+                        };
                     }
                 })
                 .on_tell(|event: RedisDelete, _| {

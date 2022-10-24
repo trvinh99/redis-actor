@@ -24,11 +24,6 @@ pub fn init_redis(urls: Vec<String>) -> Actor<Redis> {
 }
 
 pub fn insert(key: String, value: Vec<u8>, expire_time: Option<usize>) {
-    let expire_time = match expire_time {
-        Some(exp) => exp,
-        None => 0,
-    };
-
     match Distributor::named("redis_actor").tell_one(RedisInsert {
         key,
         value,
