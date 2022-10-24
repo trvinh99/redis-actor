@@ -145,12 +145,12 @@ impl ManageConnection for RedisManager {
         
     }
 
-    fn is_valid(&self, conn: &mut Self::Connection) -> Result<(), Self::Error> {
-        todo!()
+    fn is_valid(&self, conn: &mut Self::Connection) -> Result<(), redis::RedisError> {
+        return Ok(())
     }
 
     fn has_broken(&self, conn: &mut Self::Connection) -> bool {
-        todo!()
+        return false
     }
 }
 
