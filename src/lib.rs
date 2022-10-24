@@ -9,7 +9,7 @@ use log::{error, info};
 pub mod actors;
 pub mod aggregates;
 
-pub async fn init_redis(urls: Vec<String>) -> Actor<Redis> {
+pub fn init_redis(urls: Vec<String>) -> Actor<Redis> {
     let __redis_aggr = Redis {
         urls,
         ..Default::default()
