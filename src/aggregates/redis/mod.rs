@@ -203,7 +203,6 @@ impl TActor for Redis {
 
     async fn handler(&mut self, ctx: BastionContext) -> Result<(), ()> {
         let pool = r2d2::Pool::builder()
-            .max_size(15)
             .build(self.clone())
             .unwrap();
 
@@ -233,7 +232,6 @@ impl TActor for Redis {
                         match event {
                             RedisEvent::RedisServerReconnected { urls: _ } => {
                                 let pool = r2d2::Pool::builder()
-                                    .max_size(15)
                                     .build(self.clone())
                                     .unwrap();
 
