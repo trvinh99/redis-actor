@@ -5,16 +5,16 @@ use bastion::{
     run,
     supervisor::{ActorRestartStrategy, RestartPolicy, RestartStrategy},
 };
-use r2d2::ManageConnection;
 use core::fmt::Debug;
 use cqrs_es::Aggregate;
-use log::{warn, info};
+use log::{info, warn};
+use r2d2::ManageConnection;
 use redis::{
     cluster::{ClusterClientBuilder, ClusterConnection},
-    Commands, FromRedisValue, RedisError, ToRedisArgs,
+    Commands, ConnectionLike, FromRedisValue, RedisError, ToRedisArgs,
 };
 use serde::{Deserialize, Serialize};
-use std::{marker::PhantomData, error::Error};
+use std::{error::Error, io, marker::PhantomData};
 
 use crate::actors::base::TActor;
 
@@ -120,17 +120,7 @@ impl Aggregate for Redis {
     }
 }
 
-pub struct RedisManager {
-    urls: Vec<String>,
-}
-
-impl RedisManager {
-    fn get_urls(&self) -> Vec<String> {
-        self.urls.clone()
-    }
-}
-
-impl ManageConnection for RedisManager {
+impl ManageConnection for Redis {
     type Connection = ClusterConnection;
 
     type Error = redis::RedisError;
@@ -141,16 +131,19 @@ impl ManageConnection for RedisManager {
             .unwrap()
             .get_connection();
         conn
-            
-        
     }
 
     fn is_valid(&self, conn: &mut Self::Connection) -> Result<(), redis::RedisError> {
-        return Ok(())
+        if conn.check_connection() {
+            info!("Check conn: true");
+            Ok(())
+        } else {
+            Err(RedisError::from(io::Error::from(io::ErrorKind::BrokenPipe)))
+        }
     }
 
     fn has_broken(&self, conn: &mut Self::Connection) -> bool {
-        return false
+        !conn.is_open()
     }
 }
 
@@ -169,24 +162,16 @@ impl TActor for Redis {
     }
 
     async fn handler(&mut self, ctx: BastionContext) -> Result<(), ()> {
-        // let mut conn = ClusterClientBuilder::new(self.get_urls())
-        //     .build()
-        //     .unwrap()
-        //     .get_connection()
-        //     .unwrap();
-
-        let manager = RedisManager {
-            urls: self.get_urls()
-        };
-
         let pool = r2d2::Pool::builder()
             .max_size(15)
-            .build(manager)
+            .build(self.clone())
             .unwrap();
-        
-        info!("Pool state: {:?}", pool.state());    
+
+        info!("Pool state: {:?}", pool.state());
 
         let mut conn = pool.get().unwrap();
+
+        info!("Pool state: {:?}", pool.state());
 
         Distributor::named("redis_actor")
             .tell_one(RedisCommand::ConnectRedisServer {
@@ -208,13 +193,12 @@ impl TActor for Redis {
                     self.apply(event.clone());
                     run!(async {
                         match event {
-                            RedisEvent::RedisServerReconnected { urls } => {
-                                // conn = ClusterClientBuilder::new(urls)
-                                //     .build()
-                                //     .unwrap()
-                                //     .get_connection()
-                                //     .unwrap();
-                                
+                            RedisEvent::RedisServerReconnected { urls: _ } => {
+                                let pool = r2d2::Pool::builder()
+                                    .max_size(15)
+                                    .build(self.clone())
+                                    .unwrap();
+
                                 conn = pool.get().unwrap();
                             }
                             RedisEvent::RedisServerConnected { urls: _ } => {}
