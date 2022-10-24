@@ -9,7 +9,7 @@ use log::error;
 pub mod actors;
 pub mod aggregates;
 
-/// Start redis actor.
+/// Start redis actor
 pub fn init_redis(redis_aggr: Redis) -> Actor<Redis> {
     let _redis_actor = Actor::<Redis>::builder()
         .with_state_inner(redis_aggr)

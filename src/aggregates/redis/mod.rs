@@ -27,7 +27,7 @@ use crate::actors::base::TActor;
 
 use self::{command::RedisCommand, event::RedisEvent};
 
-/// Redis actor to manage redis state, store urls of cluster nodes.
+/// Redis actor to manage redis state, store urls of cluster nodes
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Redis {
     pub state: RedisState,
@@ -35,6 +35,7 @@ pub struct Redis {
     pub redis_auth: RedisAuth,
 }
 
+/// Redis authentication type
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RedisAuth {
     #[default]
@@ -45,7 +46,7 @@ pub enum RedisAuth {
     },
 }
 
-/// Redis state to manage the state of the redis connection.
+/// Redis state to manage the state of the redis connection
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RedisState {
     #[default]
@@ -81,7 +82,7 @@ impl RedisDelete {
     }
 }
 
-/// Command for query value by key.
+/// Command for query value by key
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RedisQuery {
     pub key: String,
@@ -93,7 +94,7 @@ impl RedisQuery {
     }
 }
 
-/// Command for insert a pair of key and value.
+/// Command for insert a pair of key and value
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RedisInsert {
     pub key: String,
