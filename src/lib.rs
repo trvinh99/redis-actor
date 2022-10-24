@@ -9,15 +9,17 @@ use log::error;
 pub mod actors;
 pub mod aggregates;
 
-pub fn init_redis(__redis_aggr: Redis) -> Actor<Redis> {
+/// Start redis actor.
+pub fn init_redis(redis_aggr: Redis) -> Actor<Redis> {
     let _redis_actor = Actor::<Redis>::builder()
-        .with_state_inner(__redis_aggr)
+        .with_state_inner(redis_aggr)
         .run()
         .unwrap();
 
     _redis_actor
 }
 
+/// Insert a pair of key and value into redis with or without expire time
 pub fn insert(key: String, value: Vec<u8>, expire_time: Option<usize>) {
     match Distributor::named("redis_actor").tell_one(RedisInsert {
         key,
@@ -31,6 +33,7 @@ pub fn insert(key: String, value: Vec<u8>, expire_time: Option<usize>) {
     };
 }
 
+/// Query value from key
 pub fn query(key: String) -> Vec<u8> {
     let reply: Result<Vec<u8>, SendError> = run!(async {
         Distributor::named("redis_actor")
@@ -41,6 +44,7 @@ pub fn query(key: String) -> Vec<u8> {
     reply.unwrap()
 }
 
+/// Delete key value
 pub fn delete(key: String) {
     match Distributor::named("redis_actor").tell_one(RedisDelete { key: key.clone() }) {
         Ok(_) => {}
