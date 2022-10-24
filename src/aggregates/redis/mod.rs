@@ -270,3 +270,37 @@ impl TActor for Redis {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+  fn change_redis_state() {
+    let expected = Redis {
+      state: RedisState::Initialized,
+      ..Default::default()
+    };
+
+    let mut test = Redis::default();
+
+    let cmd = RedisCommand::ConnectRedisServer{ urls: vec!["".to_owned()]};
+    let mut events = vec![];
+
+    match cmd {
+        RedisCommand::ReconnectRedisServer { urls } => {
+            events.push(RedisEvent::RedisServerReconnected { urls });
+        }
+        RedisCommand::ConnectRedisServer { urls } => {
+            events.push(RedisEvent::RedisServerConnected { urls });
+        }
+    }
+
+    for e in events {
+      test.apply(e);
+    }
+
+    assert_eq!(test.get_state(), expected.get_state());
+  }
+}

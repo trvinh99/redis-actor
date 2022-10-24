@@ -44,7 +44,7 @@ pub fn query(key: String) -> Vec<u8> {
     reply.unwrap()
 }
 
-/// Delete key value
+/// Delete field by key
 pub fn delete(key: String) {
     match Distributor::named("redis_actor").tell_one(RedisDelete { key: key.clone() }) {
         Ok(_) => {}
