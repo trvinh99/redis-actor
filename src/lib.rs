@@ -1,3 +1,4 @@
+use actors::base::Actor;
 use aggregates::redis::{Redis, RedisInsert, RedisQuery};
 use bastion::{
     prelude::{Distributor, Message, SendError},
@@ -8,11 +9,18 @@ use log::{error, info};
 pub mod actors;
 pub mod aggregates;
 
-pub fn init_redis(urls: Vec<String>) {
+pub async fn init_redis(urls: Vec<String>) -> Actor<Redis> {
     let __redis_aggr = Redis {
         urls,
         ..Default::default()
     };
+
+    let _redis_actor = Actor::<Redis>::builder()
+        .with_state_inner(__redis_aggr)
+        .run()
+        .unwrap();
+
+    _redis_actor
 }
 
 pub fn insert(key: String, value: Vec<u8>) {
