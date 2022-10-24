@@ -1,14 +1,17 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use bastion::{
-    prelude::{BastionContext, Distributor, MessageHandler, AnswerSender, Message},
+    prelude::{AnswerSender, BastionContext, Distributor, Message, MessageHandler},
     run,
     supervisor::{ActorRestartStrategy, RestartPolicy, RestartStrategy},
 };
 use core::fmt::Debug;
 use cqrs_es::Aggregate;
 use log::warn;
-use redis::{cluster::{ClusterClientBuilder, ClusterConnection}, Commands, FromRedisValue, RedisError, ToRedisArgs};
+use redis::{
+    cluster::{ClusterClientBuilder, ClusterConnection},
+    Commands, FromRedisValue, RedisError, ToRedisArgs,
+};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
@@ -62,8 +65,7 @@ pub struct RedisInsert {
     pub value: Vec<u8>,
 }
 
-impl RedisInsert
-{
+impl RedisInsert {
     pub fn new(key: String) -> Self {
         Self {
             key,
@@ -74,8 +76,7 @@ impl RedisInsert
 
 /// Implement Aggregate trait for Redis Aggregate
 #[async_trait]
-impl Aggregate for Redis
-{
+impl Aggregate for Redis {
     type Command = RedisCommand;
 
     type Event = RedisEvent;
@@ -119,8 +120,7 @@ impl Aggregate for Redis
 }
 
 #[async_trait]
-impl TActor for Redis
-{
+impl TActor for Redis {
     fn with_distributor() -> Option<Distributor> {
         Some(Distributor::named("redis_actor"))
     }
@@ -174,7 +174,8 @@ impl TActor for Redis
                 .on_question(|event: RedisQuery, sender| {
                     if let RedisState::Initialized = self.get_state() {
                         let result: Vec<u8> = conn.get(event.key).unwrap();
-                        sender.reply(result).expect("cannot reply");                    }
+                        sender.reply(result).expect("cannot reply");
+                    }
                 })
                 .on_tell(|event: RedisInsert, _| {
                     if let RedisState::Initialized = self.get_state() {

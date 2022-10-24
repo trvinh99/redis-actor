@@ -1,4 +1,4 @@
-use aggregates::redis::{RedisInsert, RedisQuery, Redis};
+use aggregates::redis::{Redis, RedisInsert, RedisQuery};
 use bastion::{
     prelude::{Distributor, Message, SendError},
     run,
@@ -15,8 +15,7 @@ pub fn init_redis(urls: Vec<String>) {
     };
 }
 
-pub fn insert(key: String, value: Vec<u8>)
-{
+pub fn insert(key: String, value: Vec<u8>) {
     match Distributor::named("redis_actor").tell_one(RedisInsert { key, value }) {
         Ok(_) => {
             info!("insert ok");
@@ -33,7 +32,7 @@ where
 {
     let reply: Result<T, SendError> = run!(async {
         Distributor::named("redis_actor")
-            .request(RedisQuery {key})
+            .request(RedisQuery { key })
             .await
             .expect("couldn't receive reply")
     });
