@@ -9,12 +9,7 @@ use log::error;
 pub mod actors;
 pub mod aggregates;
 
-pub fn init_redis(urls: Vec<String>) -> Actor<Redis> {
-    let __redis_aggr = Redis {
-        urls,
-        ..Default::default()
-    };
-
+pub fn init_redis(__redis_aggr: Redis) -> Actor<Redis> {
     let _redis_actor = Actor::<Redis>::builder()
         .with_state_inner(__redis_aggr)
         .run()
@@ -61,7 +56,12 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() {
-        init_redis(vec!["redis://127.0.0.1:30006".to_owned()]);
+        let __redis_aggr = Redis {
+            urls: vec!["redis://127.0.0.1:30006".to_owned()],
+            ..Default::default()
+        };
+
+        init_redis(__redis_aggr);
         sleep(Duration::from_secs(5));
         let expected = "value".to_owned();
         insert("key".to_owned(), expected.as_bytes().to_vec(), None);

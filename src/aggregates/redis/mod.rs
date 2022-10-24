@@ -63,6 +63,10 @@ impl Redis {
     fn get_urls(&self) -> Vec<String> {
         self.urls.clone()
     }
+
+    fn get_redis_auth(&self) -> RedisAuth {
+        self.redis_auth.clone()
+    }
 }
 
 /// Command for delete a key
@@ -157,16 +161,20 @@ impl ManageConnection for Redis {
     type Error = redis::RedisError;
 
     fn connect(&self) -> Result<Self::Connection, Self::Error> {
-        let conn = ClusterClientBuilder::new(self.get_urls())
-            .build()
-            .unwrap()
-            .get_connection();
-        conn
+        let init_client = ClusterClientBuilder::new(self.get_urls());
+
+        let client = match self.get_redis_auth() {
+            RedisAuth::None => init_client,
+            RedisAuth::Userpass { username, password } => {
+                init_client.username(username).password(password)
+            }
+        };
+
+        client.build().unwrap().get_connection()
     }
 
     fn is_valid(&self, conn: &mut Self::Connection) -> Result<(), redis::RedisError> {
         if conn.check_connection() {
-            info!("Check conn: true");
             Ok(())
         } else {
             Err(RedisError::from(io::Error::from(io::ErrorKind::BrokenPipe)))
