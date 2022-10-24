@@ -44,21 +44,22 @@ pub fn query(key: String) -> Vec<u8> {
     reply.unwrap()
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::{thread::sleep, time::Duration};
+#[cfg(test)]
+mod tests {
+    use std::{thread::sleep, time::Duration};
 
-//     use super::*;
+    use super::*;
 
-//     #[tokio::test]
-//     async fn it_works() {
-//         init_redis(vec!["redis://127.0.0.1:30006".to_owned()]);
-//         sleep(Duration::from_secs(5));
-//         let value = "hi".to_owned();
-//         insert("hello".to_owned(), value.as_bytes().to_vec());
+    #[tokio::test]
+    async fn it_works() {
+        init_redis(vec!["redis://127.0.0.1:30006".to_owned()]);
+        sleep(Duration::from_secs(5));
+        let expected = "hi".to_owned();
+        insert("hello".to_owned(), expected.as_bytes().to_vec());
 
-//         let res = query("hello".to_owned());
+        let query = query("hello".to_owned());
 
-//         assert_eq!(value, res);
-//     }
-// }
+        let res = String::from_utf8(query).unwrap();
+        assert_eq!(expected, res);
+    }
+}
