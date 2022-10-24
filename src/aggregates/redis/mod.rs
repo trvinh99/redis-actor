@@ -202,9 +202,7 @@ impl TActor for Redis {
     }
 
     async fn handler(&mut self, ctx: BastionContext) -> Result<(), ()> {
-        let pool = r2d2::Pool::builder()
-            .build(self.clone())
-            .unwrap();
+        let pool = r2d2::Pool::builder().build(self.clone()).unwrap();
 
         let mut conn = pool.get().unwrap();
 
@@ -231,9 +229,7 @@ impl TActor for Redis {
                     run!(async {
                         match event {
                             RedisEvent::RedisServerReconnected { urls: _ } => {
-                                let pool = r2d2::Pool::builder()
-                                    .build(self.clone())
-                                    .unwrap();
+                                let pool = r2d2::Pool::builder().build(self.clone()).unwrap();
 
                                 conn = pool.get().unwrap();
                             }
@@ -277,30 +273,32 @@ mod tests {
     use super::*;
 
     #[test]
-  fn change_redis_state() {
-    let expected = Redis {
-      state: RedisState::Initialized,
-      ..Default::default()
-    };
+    fn change_redis_state() {
+        let expected = Redis {
+            state: RedisState::Initialized,
+            ..Default::default()
+        };
 
-    let mut test = Redis::default();
+        let mut test = Redis::default();
 
-    let cmd = RedisCommand::ConnectRedisServer{ urls: vec!["".to_owned()]};
-    let mut events = vec![];
+        let cmd = RedisCommand::ConnectRedisServer {
+            urls: vec!["".to_owned()],
+        };
+        let mut events = vec![];
 
-    match cmd {
-        RedisCommand::ReconnectRedisServer { urls } => {
-            events.push(RedisEvent::RedisServerReconnected { urls });
+        match cmd {
+            RedisCommand::ReconnectRedisServer { urls } => {
+                events.push(RedisEvent::RedisServerReconnected { urls });
+            }
+            RedisCommand::ConnectRedisServer { urls } => {
+                events.push(RedisEvent::RedisServerConnected { urls });
+            }
         }
-        RedisCommand::ConnectRedisServer { urls } => {
-            events.push(RedisEvent::RedisServerConnected { urls });
+
+        for e in events {
+            test.apply(e);
         }
-    }
 
-    for e in events {
-      test.apply(e);
+        assert_eq!(test.get_state(), expected.get_state());
     }
-
-    assert_eq!(test.get_state(), expected.get_state());
-  }
 }
