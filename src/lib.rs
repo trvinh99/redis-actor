@@ -1,8 +1,8 @@
 use actors::base::Actor;
 use aggregates::redis::{Redis, RedisDelete, RedisInsert, RedisQuery};
 use bastion::{
-    prelude::{Distributor, SendError},
-    run,
+  prelude::{Distributor, SendError},
+  run,
 };
 use log::error;
 
@@ -11,68 +11,70 @@ pub mod aggregates;
 
 /// Start redis actor
 pub fn init_redis(redis_aggr: Redis) -> Actor<Redis> {
-    let _redis_actor = Actor::<Redis>::builder()
-        .with_state_inner(redis_aggr)
-        .run()
-        .unwrap();
+  let _redis_actor = Actor::<Redis>::builder()
+    .with_state_inner(redis_aggr)
+    .run()
+    .unwrap();
 
-    _redis_actor
+  _redis_actor
 }
 
 /// Insert a pair of key and value into redis with or without expire time
 pub fn insert(key: String, value: Vec<u8>, expire_time: Option<usize>) {
-    match Distributor::named("redis_actor").tell_one(RedisInsert {
-        key,
-        value,
-        expire_time,
-    }) {
-        Ok(_) => {}
-        Err(e) => {
-            error!("insert error: {:?}", e);
-        }
-    };
+  match Distributor::named("redis_actor").tell_one(RedisInsert {
+    key,
+    value,
+    expire_time,
+  }) {
+    Ok(_) => {}
+    Err(e) => {
+      error!("insert error: {:?}", e);
+    }
+  };
 }
 
 /// Query value from key
 pub fn query(key: String) -> Vec<u8> {
-    let reply: Result<Vec<u8>, SendError> = run!(async {
-        Distributor::named("redis_actor")
-            .request(RedisQuery { key })
-            .await
-            .expect("couldn't receive reply")
-    });
-    reply.unwrap()
+  let reply: Result<Vec<u8>, SendError> = run!(async {
+    Distributor::named("redis_actor")
+      .request(RedisQuery { key })
+      .await
+      .expect("couldn't receive reply")
+  });
+  reply.unwrap()
 }
 
 /// Delete field by key
 pub fn delete(key: String) {
-    match Distributor::named("redis_actor").tell_one(RedisDelete { key: key.clone() }) {
-        Ok(_) => {}
-        Err(e) => error!("Delete key {} failed: {:?}", key, e),
-    };
+  match Distributor::named("redis_actor")
+    .tell_one(RedisDelete { key: key.clone() })
+  {
+    Ok(_) => {}
+    Err(e) => error!("Delete key {} failed: {:?}", key, e),
+  };
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{thread::sleep, time::Duration};
+  use std::{thread::sleep, time::Duration};
 
-    use super::*;
+  use super::*;
 
-    #[tokio::test]
-    async fn it_works() {
-        let __redis_aggr = Redis {
-            urls: vec!["redis://127.0.0.1:30006".to_owned()],
-            ..Default::default()
-        };
+  #[tokio::test]
+  async fn it_works() {
+    let __redis_aggr = Redis {
+      urls: vec!["redis://127.0.0.1:30006".to_owned()],
+      ..Default::default()
+    };
 
-        init_redis(__redis_aggr);
-        sleep(Duration::from_secs(5));
-        let expected = "value".to_owned();
-        insert("key".to_owned(), expected.as_bytes().to_vec(), None);
+    init_redis(__redis_aggr);
+    sleep(Duration::from_secs(5));
+    let expected = "value".to_owned();
+    insert("key".to_owned(), expected.as_bytes().to_vec(), None);
 
-        let query = query("key".to_owned());
+    let query = query("key".to_owned());
 
-        let res = String::from_utf8(query).unwrap();
-        assert_eq!(expected, res);
-    }
+    let res = String::from_utf8(query).unwrap();
+    assert_eq!(expected, res);
+  }
 }
